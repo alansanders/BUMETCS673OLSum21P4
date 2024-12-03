@@ -1,11 +1,53 @@
-from flask import Flask, render_template, request, redirect, flash, url_for
+from flask import Flask, render_template, request, redirect, flash, url_for, jsonify
 from flask_login import login_required, current_user, login_user, logout_user
-from models import UserModel, db, login, Admin
+from models import UserModel, db, login, Admin, MealModel
 from sqlalchemy import exc
 from webargs.flaskparser import use_args, parser
 from webargs import fields, validate
 from app import *
 from usda import extract_avg_calorie_data, usda_api_call, load_cfg
+
+# JWT
+from flask_jwt_extended import create_access_token
+from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import jwt_required
+from flask_jwt_extended import set_access_cookies
+
+
+########################## Assignment 3 Routes for JWT  ##########################
+
+@app.route("/login_without_cookies", methods=["POST"])
+def login_without_cookies():
+    #username = request.json.get("username", None)
+    #password = request.json.get("password", None)
+    
+    username = request.form['username']
+    password = request.form['password']
+    
+    # Query your database for username and password
+    #user = UserModel.query.filter_by(username=username, password=password).first()
+    user = UserModel.query.filter_by(username=username).first()
+
+    if user is None:
+        # The user was not found on the database
+        return jsonify({"msg": "Bad username or password"}), 401
+    
+    # Create a new token with the user id inside
+    access_token = create_access_token(identity=user.id)
+    return jsonify({ "access_token": access_token, "user_id": user.id , "username": username})
+
+# Test JWT
+# Protect a route with jwt_required, which will kick out requests
+# without a valid JWT present.
+@app.route("/protected", methods=["GET", "POST"])
+@jwt_required()
+def protected():
+    # Access the identity of the current user with get_jwt_identity
+    current_user = get_jwt_identity()
+    return jsonify(logged_in_as=current_user), 200
+
+####################################### END  #######################################
+
 
 # db.init_app(app)
 login.init_app(app)
@@ -25,9 +67,31 @@ def about():
 
 
 @app.route('/foodinput')
-@login_required
+@jwt_required()
 def user_dashboard():
     return render_template('foodinput.html')
+
+
+@app.route("/token", methods=["POST"])
+def create_token():
+    username = request.json.get("username", None)
+    password = request.json.get("password", None)
+    
+    # username = request.form['username']
+    # password = request.form['password']
+
+    # Query your database for username and password
+    #user = UserModel.query.filter_by(username=username, password=password).first()
+    user = UserModel.query.filter_by(username=username).first()
+
+    if user is None:
+        # The user was not found on the database
+        return jsonify({"msg": "Bad username or password"}), 401
+    
+    # Create a new token with the user id inside
+    access_token = create_access_token(identity=user.id)
+    return jsonify({ "access_token": access_token, "user_id": user.id , "username": username})
+
 
 
 @app.route('/login', methods=['POST', 'GET'])
@@ -37,20 +101,27 @@ def login():
         return redirect('/foodinput')
 
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        # username = request.form['username']
+        # password = request.form['password']
+        
+        username = request.json.get("username", None)
+        password = request.json.get("password", None)
+        
         user = UserModel.query.filter_by(username=username).first()
         if user is not None:
             if user.role == 'customer':
                 user = UserModel(user.firstname, user.lastname, user.email, user.username, user.password, user.role)
-
                 path = '/foodinput'
             else:
                 user = Admin(user.firstname, user.lastname, user.email, user.username, user.password, user.role)
                 path = '/admin/data'
             user = user.check_username_exist(username)
             if user.check_password(password):
-                login_user(user)
+                #login_user(user)
+                # JWT
+                response = jsonify({"msg": "login successful"})
+                access_token = create_access_token(identity=username)
+                set_access_cookies(response, access_token)
                 return redirect(path)
             else:
                 msg = 'Incorrect password!'
@@ -123,101 +194,6 @@ def register():
 def logout():
     logout_user()
     return redirect('/')
-
-
-@app.route('/admin/data', methods=['GET', 'POST'])
-@login_required
-def get_user_data():
-    if user.check_admin(current_user.username):
-        if request.method == 'GET':
-            return render_template('userinput.html')
-
-        if request.method == 'POST':
-            username = request.form['username']
-            return redirect(f'/admin/data/{username}')
-    else:
-        return redirect('/')
-
-
-@app.route('/admin/data/<string:username>', methods=['GET', 'POST'])
-@login_required
-def display_user_detail(username):
-    if user.check_admin(current_user.username):
-        user1 = (Admin(user)).retrieve_user(username)
-        if user1:
-            return render_template('userlist.html', user=user1)
-        else:
-            return redirect(f'/admin/data')
-    else:
-        return redirect('/')
-
-
-@app.route('/admin/data/update/<int:id>', methods=['GET', 'POST'])
-@login_required
-def update_user_record(id):
-    if user.check_admin(current_user.username):
-        user1 = UserModel.query.get_or_404(id)
-        if request.method == 'POST':
-            # user1.firstname = request.form['firstname']
-            # user1.lastname = request.form['lastname']
-            # user1.username = request.form['username']
-            # user1.password = request.form['password']
-            # user1.password = user.set_password(user1.password)
-            # user1.email = request.form['email']
-
-            args = parser.parse(reg_args, request, location='form')
-            user1.firstname = args['firstname']
-            user1.lastname = args['lastname']
-            user1.email = args['email']
-            user1.username = args['username']
-            user1.password = args['password']
-            user1.password = user.set_password(user1.password)
-
-            try:
-                db.session.commit()
-                return redirect(f'/admin/data/{user1.username}')
-            except exc.SQLAlchemyError:
-                return "Problem to updating the user record."
-        else:
-            return render_template('userupdate.html', user=user1)
-    else:
-        redirect('/')
-
-
-@app.route('/admin/data/delete/<int:id>', methods=['GET', 'POST'])
-@login_required
-def delete_user_record(id):
-    if user.check_admin(current_user.username):
-        if (Admin(user)).delete_user(id):
-            return redirect('/admin/data')
-        else:
-            return "Problem to deleting the user record."
-    else:
-        redirect('/')
-
-
-# dict of input validation tests for foodinput
-food_args = {
-    "meal_type":
-        fields.Str(
-            validate=[
-                validate.OneOf(['breakfast', 'lunch', 'dinner', 'snack', 'Breakfast', 'Lunch', 'Dinner', 'Snack'],
-                               error='Incorrect Meal choice: please select from breakfast, lunch, dinner or snack'),
-                validate.Regexp('^[a-zA-Z0-9 ]*$', error='Please do not use special characters')
-            ],
-            required=True
-        ),
-    "fitem1":
-        fields.Str(
-            validate=[
-                validate.Length(min=2),
-                validate.Regexp('^[a-zA-Z0-9 ]*$', error='Please do not use special characters')
-            ],
-            required=True
-        ),
-    "fitem2": fields.Str(validate=validate.Regexp('^[a-zA-Z0-9 ]*$', error='Please do not use special characters'))
-}
-
 
 # route to CREATE a meal entry
 @app.route('/foodinput', methods=['POST', 'GET'])  # render food input page
@@ -327,3 +303,101 @@ def update_meal(id):
 
     else:
         return render_template('update.html', meal=meal)
+
+################# Admin Routes #################
+
+@app.route('/admin/data', methods=['GET', 'POST'])
+@login_required
+def get_user_data():
+    if user.check_admin(current_user.username):
+        if request.method == 'GET':
+            return render_template('userinput.html')
+
+        if request.method == 'POST':
+            username = request.form['username']
+            return redirect(f'/admin/data/{username}')
+    else:
+        return redirect('/')
+
+
+@app.route('/admin/data/<string:username>', methods=['GET', 'POST'])
+@login_required
+def display_user_detail(username):
+    if user.check_admin(current_user.username):
+        user1 = (Admin(user)).retrieve_user(username)
+        if user1:
+            return render_template('userlist.html', user=user1)
+        else:
+            return redirect(f'/admin/data')
+    else:
+        return redirect('/')
+
+
+@app.route('/admin/data/update/<int:id>', methods=['GET', 'POST'])
+@login_required
+def update_user_record(id):
+    if user.check_admin(current_user.username):
+        user1 = UserModel.query.get_or_404(id)
+        if request.method == 'POST':
+            # user1.firstname = request.form['firstname']
+            # user1.lastname = request.form['lastname']
+            # user1.username = request.form['username']
+            # user1.password = request.form['password']
+            # user1.password = user.set_password(user1.password)
+            # user1.email = request.form['email']
+
+            args = parser.parse(reg_args, request, location='form')
+            user1.firstname = args['firstname']
+            user1.lastname = args['lastname']
+            user1.email = args['email']
+            user1.username = args['username']
+            user1.password = args['password']
+            user1.password = user.set_password(user1.password)
+
+            try:
+                db.session.commit()
+                return redirect(f'/admin/data/{user1.username}')
+            except exc.SQLAlchemyError:
+                return "Problem to updating the user record."
+        else:
+            return render_template('userupdate.html', user=user1)
+    else:
+        redirect('/')
+
+
+@app.route('/admin/data/delete/<int:id>', methods=['GET', 'POST'])
+@login_required
+def delete_user_record(id):
+    if user.check_admin(current_user.username):
+        if (Admin(user)).delete_user(id):
+            return redirect('/admin/data')
+        else:
+            return "Problem to deleting the user record."
+    else:
+        redirect('/')
+
+
+# dict of input validation tests for foodinput
+food_args = {
+    "meal_type":
+        fields.Str(
+            validate=[
+                validate.OneOf(['breakfast', 'lunch', 'dinner', 'snack', 'Breakfast', 'Lunch', 'Dinner', 'Snack'],
+                               error='Incorrect Meal choice: please select from breakfast, lunch, dinner or snack'),
+                validate.Regexp('^[a-zA-Z0-9 ]*$', error='Please do not use special characters')
+            ],
+            required=True
+        ),
+    "fitem1":
+        fields.Str(
+            validate=[
+                validate.Length(min=2),
+                validate.Regexp('^[a-zA-Z0-9 ]*$', error='Please do not use special characters')
+            ],
+            required=True
+        ),
+    "fitem2": fields.Str(validate=validate.Regexp('^[a-zA-Z0-9 ]*$', error='Please do not use special characters'))
+}
+
+
+

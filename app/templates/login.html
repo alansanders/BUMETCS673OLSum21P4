@@ -3,14 +3,21 @@
 
 {% block head%}
     <title>Login</title>
+    <script>
+        
+      </script>
 {% endblock%}
 
 {% block body%}
 {% include 'homenavigation.html' %}
     <div align="center">
+        <h1>JWT Request Example</h1>
+        <button id="fetchData">Fetch Protected Data</button>
+        <pre id="result"></pre> <!-- Preformatted text for JSON output -->
         <h1>Login</h1>
         <h2 class="meal">
-            <form action="{{ url_for('login') }}" method="post">
+            <!-- <form action="{{ url_for('create_token') }}" method="post"> -->
+            <form onsubmit="handleLogin(event);">
                 <div class="msg">{{ msg }}</div>
                 <input id="username" name="username" type="text" placeholder="Enter Your Username" class="textbox"/></br></br>
                 <input id="password" name="password" type="password" placeholder="Enter Your Password" class="textbox"/></br></br></br>

@@ -2,14 +2,24 @@ from flask import Flask, json, render_template, url_for, jsonify, request, redir
 # from flask_cors import CORS
 from datetime import datetime
 from models import *
+from dotenv import load_dotenv
 import os
+
+# JWT
+from flask_jwt_extended import JWTManager
 
 # instantiate a Flask application and store that in 'app'
 app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# CORS(app)
 
-app.secret_key = 'xf7\xc4\xfa\x91'
+# JWT
+# Setup the Flask-JWT-Extended extension
+app.config['JWT_TOKEN_LOCATION'] = ['headers', 'cookies']
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")# protect the key
+
+jwt = JWTManager(app)
+
+app.secret_key = 'xf7\xc4\xfa\x91' # TODO put this key in the environment
 
 # config the SQLite database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../database/data.db'
