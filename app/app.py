@@ -2,6 +2,7 @@ from flask import Flask, json, render_template, url_for, jsonify, request, redir
 # from flask_cors import CORS
 from datetime import datetime
 from models import *
+from dotenv import load_dotenv
 import os
 
 # instantiate a Flask application and store that in 'app'
@@ -9,7 +10,8 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # CORS(app)
 
-app.secret_key = 'xf7\xc4\xfa\x91'
+### ASSIGNEMENT 4 - UPDATED KEY ###
+app.secret_key = os.getenv("APP_SECRET_KEY")# protect the key
 
 # config the SQLite database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../database/data.db'

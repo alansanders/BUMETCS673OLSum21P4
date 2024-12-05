@@ -3,6 +3,7 @@ env/*
 .vscode/*
 .idea/*
 *.db
+my-env/*
 
 # C extensions
 *.so
@@ -57,6 +58,8 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+app/__pycache__/*
+app/__pycache__/*
 
 # Translations
 *.mo
@@ -179,3 +182,8 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk-
 
+app/__pycache__/app.cpython-38.pyc
+app/__pycache__/app.cpython-38.pyc
+app/__pycache__/models.cpython-38.pyc
+app/__pycache__/routes.cpython-38.pyc
+app/__pycache__/usda.cpython-38.pyc
