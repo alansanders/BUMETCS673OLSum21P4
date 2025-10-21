@@ -125,19 +125,31 @@ def logout():
     return redirect('/')
 
 
+# @app.route('/admin/data', methods=['GET', 'POST'])
+# @login_required
+# def get_user_data():
+#     if user.check_admin(current_user.username):
+#         if request.method == 'GET':
+#             return render_template('userinput.html')
+
+#         if request.method == 'POST':
+#             username = request.form['username']
+#             return redirect(f'/admin/data/{username}')
+#     else:
+#         return redirect('/')
+
 @app.route('/admin/data', methods=['GET', 'POST'])
 @login_required
 def get_user_data():
-    if user.check_admin(current_user.username):
+    if current_user.role == 'admin':  # Check if the logged-in user is an admin
         if request.method == 'GET':
             return render_template('userinput.html')
-
-        if request.method == 'POST':
-            username = request.form['username']
+        elif request.method == 'POST':
+            username = request.form.get('username')
             return redirect(f'/admin/data/{username}')
     else:
+        flash("Access denied: Admins only.")
         return redirect('/')
-
 
 @app.route('/admin/data/<string:username>', methods=['GET', 'POST'])
 @login_required
