@@ -46,6 +46,6 @@ typing-extensions==3.10.0.0
 urllib3==1.25.11
 virtualenv==20.4.6
 webargs==8.0.0
-Werkzeug==2.0.1
+Werkzeug==3.1.4
 wtforms==3.1.2
 zipp==3.4.1
